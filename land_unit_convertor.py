@@ -75,7 +75,7 @@ st.title(L["title"])
 
 # Input section
 unit = st.selectbox(L["select_unit"], HIERARCHY, format_func=lambda u: L[u])
-value = st.number_input(L["enter_value"], min_value=0.0, step=0.1)
+value = st.number_input(L["enter_value"], min_value=0.0, step=0.1,format="%.6f")
 
 if st.button(L["convert"]):
 
@@ -123,3 +123,4 @@ if st.button(L["convert"]):
         st.write(f"- **{L[u]}** = {pretty(UNITS_SQFT[u])} {L['sqft']}")
     
     st.info(L["note"])
+
