@@ -1,98 +1,125 @@
 import streamlit as st
 
-st.set_page_config(page_title="Land Unit Converter", layout="centered")
+# -------------------------------------------
+# Language packs
+# -------------------------------------------
+TEXT = {
+    "en": {
+        "title": "Land Unit Converter",
+        "select_unit": "Select input unit:",
+        "enter_value": "Enter value:",
+        "convert": "Convert",
+        "all_units": "Converted Values (All Units)",
+        "full_breakdown": "Hierarchy Breakdown (Acre → Bigha → Katha → Chatak → Decimal)",
+        "definitions": "Unit Definitions",
+        "sqft": "sq.ft",
+        "acre": "Acre",
+        "bigha": "Bigha",
+        "katha": "Katha",
+        "chatak": "Chatak",
+        "decimal": "Decimal",
+        "note": "Note: This breakdown computes whole counts of each larger unit and expands the leftover into smaller units. The 'decimal' line may show fractional decimal values (<1) and its approximate sq.ft value. Final leftover is shown in sq.ft.",
+    },
+    "bn": {
+        "title": "জমির ইউনিট রূপান্তর",
+        "select_unit": "ইউনিট নির্বাচন করুন:",
+        "enter_value": "মান লিখুন:",
+        "convert": "রূপান্তর করুন",
+        "all_units": "সমস্ত ইউনিটে রূপান্তরিত মান",
+        "full_breakdown": "ক্রম অনুযায়ী ভাঙ্গন (একর → বিঘা → কাঠা → ছটাক → ডেসিমেল)",
+        "definitions": "ইউনিট সংজ্ঞা",
+        "sqft": "স্কয়ার ফুট",
+        "acre": "একর",
+        "bigha": "বিঘা",
+        "katha": "কাঠা",
+        "chatak": "ছটাক",
+        "decimal": "ডেসিমেল",
+        "note": "নোট: এই ভাঙন পদ্ধতিতে বড় ইউনিটগুলো প্রথমে পূর্ণ সংখ্যায় গণনা করা হয় এবং বাকি অংশ ছোট ইউনিটে রূপান্তর করা হয়। 'ডেসিমেল' লাইনে ১-এর কম ভগ্নাংশ থাকতে পারে এবং তার আনুমানিক স্কয়ার ফুট মান দেখানো হয়। শেষ বাকি অংশ স্কয়ার ফুট হিসেবে দেখানো হয়।",
+    }
+}
 
-# Conversion constants (West Bengal / Bihar standard)
-SQFT_PER_DECIMAL = 435.6
-SQFT_PER_KATHA   = 720
-SQFT_PER_CHATAK  = 45
-SQFT_PER_BIGHA   = 14400
-KATHA_PER_ACRE   = 60.5
+# -------------------------------------------
+# Unit conversion (all based on sq.ft)
+# -------------------------------------------
+UNITS_SQFT = {
+    "acre": 43560,
+    "bigha": 14400,
+    "katha": 720,
+    "chatak": 45,
+    "decimal": 435.6,
+}
 
-# Master unit = SQFT
-def to_sqft(value, unit):
-    unit = unit.lower()
-    if unit == "sqft":
-        return value
-    if unit == "decimal":
-        return value * SQFT_PER_DECIMAL
-    if unit == "chatak":
-        return value * SQFT_PER_CHATAK
-    if unit == "katha":
-        return value * SQFT_PER_KATHA
-    if unit == "bigha":
-        return value * SQFT_PER_BIGHA
-    if unit == "acre":
-        return value * (SQFT_PER_KATHA * KATHA_PER_ACRE)
-    return 0
+HIERARCHY = ["acre", "bigha", "katha", "chatak", "decimal"]
 
+def convert_to_sqft(value, unit):
+    return value * UNITS_SQFT[unit]
 
-def from_sqft(sqft):
-    acre   = sqft / (SQFT_PER_KATHA * KATHA_PER_ACRE)
-    bigha  = sqft / SQFT_PER_BIGHA
-    katha  = sqft / SQFT_PER_KATHA
-    chatak = sqft / SQFT_PER_CHATAK
-    decimal = sqft / SQFT_PER_DECIMAL
-    return acre, bigha, katha, chatak, decimal
+def sqft_to_all_units(sqft):
+    return {
+        u: sqft / UNITS_SQFT[u] for u in UNITS_SQFT
+    }
 
+def pretty(x):
+    return f"{x:.6f}".rstrip("0").rstrip(".")
 
-def hierarchy_breakdown(sqft):
-    remaining = sqft
-
-    # Acre
-    acre = int(remaining // (SQFT_PER_KATHA * KATHA_PER_ACRE))
-    remaining -= acre * (SQFT_PER_KATHA * KATHA_PER_ACRE)
-
-    # Bigha
-    bigha = int(remaining // SQFT_PER_BIGHA)
-    remaining -= bigha * SQFT_PER_BIGHA
-
-    # Katha
-    katha = int(remaining // SQFT_PER_KATHA)
-    remaining -= katha * SQFT_PER_KATHA
-
-    # Chatak
-    chatak = int(remaining // SQFT_PER_CHATAK)
-    remaining -= chatak * SQFT_PER_CHATAK
-
-    # Decimal (float)
-    decimal = round(remaining / SQFT_PER_DECIMAL, 5)
-
-    return acre, bigha, katha, chatak, decimal
-
-
+# -------------------------------------------
 # Streamlit UI
-st.title("🌐 Land Unit Converter (India)")
-st.write("Convert Acre, Bigha, Katha, Chatak, Decimal, Sq.Ft with hierarchy breakdown.")
+# -------------------------------------------
+st.set_page_config(page_title="Land Converter", layout="centered")
 
-unit_list = ["acre", "bigha", "katha", "chatak", "decimal", "sqft"]
+# Language toggle
+lang = st.radio("Language / ভাষা", ("English", "বাংলা"))
+L = TEXT["bn"] if lang == "বাংলা" else TEXT["en"]
 
-value = st.number_input("Enter value:", min_value=0.0, format="%.4f")
-unit  = st.selectbox("Select unit:", unit_list)
+st.title(L["title"])
 
-if st.button("Convert"):
-    sqft = to_sqft(value, unit)
+# Input section
+unit = st.selectbox(L["select_unit"], HIERARCHY, format_func=lambda u: L[u])
+value = st.number_input(L["enter_value"], min_value=0.0, step=0.1)
 
-    # FULL CONVERSION (NEW FEATURE)
-    acre, bigha, katha, chatak, decimal = from_sqft(sqft)
+if st.button(L["convert"]):
 
-    st.subheader("📌 FULL UNIT CONVERSION")
-    st.write(f"### {value} {unit} =")
-    st.write(f"- **Acre:** {acre:.6f}")
-    st.write(f"- **Bigha:** {bigha:.6f}")
-    st.write(f"- **Katha:** {katha:.6f}")
-    st.write(f"- **Chatak:** {chatak:.6f}")
-    st.write(f"- **Decimal:** {decimal:.6f}")
-    st.write(f"- **Sq.Ft:** {sqft:.2f}")
+    # Convert to sqft
+    sqft_val = convert_to_sqft(value, unit)
 
-    # HIERARCHY BREAKDOWN (old feature)
-    st.subheader("📐 HIERARCHY BREAKDOWN (Acre → Bigha → Katha → Chatak → Decimal)")
-    h_acre, h_bigha, h_katha, h_chatak, h_decimal = hierarchy_breakdown(sqft)
+    # ----------------------------------------------------
+    # 1) Show ALL unit conversions
+    # ----------------------------------------------------
+    st.subheader(L["all_units"])
+    all_vals = sqft_to_all_units(sqft_val)
 
-    st.write(f"- Acre: `{h_acre}`")
-    st.write(f"- Bigha: `{h_bigha}`")
-    st.write(f"- Katha: `{h_katha}`")
-    st.write(f"- Chatak: `{h_chatak}`")
-    st.write(f"- Decimal: `{h_decimal}`")
-    st.info("Note: This breakdown computes whole counts of each larger unit and expands the leftover into smaller units. "
-        "The 'decimal' line will show any fractional decimal (less than 1) as a decimal fraction and its approx sq.ft value; final leftover is shown in sq.ft.")
+    st.write(f"- **{L['acre']}:** {pretty(all_vals['acre'])}")
+    st.write(f"- **{L['bigha']}:** {pretty(all_vals['bigha'])}")
+    st.write(f"- **{L['katha']}:** {pretty(all_vals['katha'])}")
+    st.write(f"- **{L['chatak']}:** {pretty(all_vals['chatak'])}")
+    st.write(f"- **{L['decimal']}:** {pretty(all_vals['decimal'])}")
+    st.write(f"- **{L['sqft']}:** {pretty(sqft_val)}")
+
+    st.markdown("---")
+
+    # ----------------------------------------------------
+    # 2) Hierarchy breakdown (Acre → Bigha → Katha → Chatak → Decimal)
+    # ----------------------------------------------------
+    st.subheader(L["full_breakdown"])
+
+    remaining = sqft_val
+    lines = []
+
+    for u in HIERARCHY:
+        unit_count = int(remaining // UNITS_SQFT[u])
+        remaining -= unit_count * UNITS_SQFT[u]
+        lines.append(f"{L[u]}: {unit_count}")
+
+    # Display block
+    st.code("\n".join(lines), language=None)
+
+    st.markdown("---")
+
+    # ----------------------------------------------------
+    # 3) Unit Definitions
+    # ----------------------------------------------------
+    st.subheader(L["definitions"])
+    for u in HIERARCHY:
+        st.write(f"- **{L[u]}** = {pretty(UNITS_SQFT[u])} {L['sqft']}")
+    
+    st.info(L["note"])
